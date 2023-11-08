@@ -1,0 +1,8 @@
+uvicorn[standard]
+fastapi==0.104.1
+tenacity==8.2.3
+httpx==0.25.1
+dataclasses-json==0.6.1
+SQLAlchemy==2.0.23
+trafilatura==1.6.2
+inject==5.1.0
