@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  memaiflow:
+    restart: always
+    image: yipengfei/memai-flow:latest
+    container_name: memaiflow
+    ports:
+      - 8000:8000
+    environment:
+      MEM_API_KEY: ''
+      CUBOX_AUTH_CODE: ''
+      CUBOX_SYNC_INTERVAL: 300
