@@ -6,11 +6,15 @@ import os
 from memflow.exceptions import CuboxErrorException
 
 if not os.environ.get("WORKDIR"):
-    workdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'app/memflow')
-    if not os.path.exists(workdir):
-        os.makedirs(workdir)
-        os.makedirs(os.path.join(workdir, 'logs'))
-    os.environ["WORKDIR"] = workdir
+    workdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+else:
+    workdir = os.environ.get("WORKDIR")
+if not os.path.exists(workdir):
+    os.makedirs(workdir)
+log_dir = os.path.join(workdir, 'logs')
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+os.environ["WORKDIR"] = workdir
 import logging.config
 import inject
 
@@ -93,7 +97,7 @@ def startup():
     auth_code = os.environ.get("CUBOX_AUTH_CODE")
     if not auth_code:
         raise CuboxErrorException("CUBOX_AUTH_CODE not found, please set it in env")
-    interval_secs = os.environ.get('CUBOX_SYNC_INTERVAL', 300)
+    interval_secs = int(os.environ.get('CUBOX_SYNC_INTERVAL', 300))
     scheduler.add_job(CuboxSyncTask(auth_code).run, 'interval',
                       seconds=interval_secs)
     log.info("add job cubox sync task, interval: %s seconds" % interval_secs)
