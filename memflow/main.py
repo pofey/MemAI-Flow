@@ -1,17 +1,26 @@
 """
 程序启动入口类
 """
-import json
-import logging.config
 import os
 
+from memflow.exceptions import CuboxErrorException
+
+if not os.environ.get("WORKDIR"):
+    workdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'app/memflow')
+    if not os.path.exists(workdir):
+        os.makedirs(workdir)
+        os.makedirs(os.path.join(workdir, 'logs'))
+    os.environ["WORKDIR"] = workdir
+import logging.config
+import inject
+
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi.exceptions import RequestValidationError
 
 from memflow.common.logging import LOGGING_CONFIG
+from memflow.memapi import MemApi
 
 logging.config.dictConfig(LOGGING_CONFIG)
-
-import inject
 
 import httpx
 import uvicorn
@@ -21,6 +30,8 @@ from memflow.databases import create_all
 
 from memflow.common.response import json_200, json_500, json_with_status
 from memflow.models import *
+
+scheduler = BackgroundScheduler(daemon=True)
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +56,7 @@ async def root():
 async def unprocessable_entity_handler(request, exc: RequestValidationError):
     return json_with_status(
         status_code=422,
-        message='参数错误',
+        message='Parameter error',
         data=dict(exc.errors())
     )
 
@@ -69,16 +80,26 @@ async def universal_exception_handler(request, exc):
 
 
 def config(binder):
-    """
-    依赖注入机制的初始化
-    所有通过inject使用的对象，需要提前再此绑定
-    :param binder:
-    :return:
-    """
-    pass
+    api_key = os.environ.get("MEM_API_KEY")
+    if not api_key:
+        raise CuboxErrorException("MEM_API_KEY not found, please set it in env")
+    mem = MemApi(api_key)
+    binder.bind(MemApi, mem)
+
+
+def startup():
+    inject.configure(config)
+    from memflow.tasks.cuboxsynctask import CuboxSyncTask
+    auth_code = os.environ.get("CUBOX_AUTH_CODE")
+    if not auth_code:
+        raise CuboxErrorException("CUBOX_AUTH_CODE not found, please set it in env")
+    interval_secs = os.environ.get('CUBOX_SYNC_INTERVAL', 300)
+    scheduler.add_job(CuboxSyncTask(auth_code).run, 'interval',
+                      seconds=interval_secs)
+    log.info("add job cubox sync task, interval: %s seconds" % interval_secs)
+    scheduler.start()
 
 
 if __name__ == "__main__":
-    # 加载公共全局依赖
-    inject.configure(config)
+    startup()
     uvicorn.run(app, host="0.0.0.0", port=os.environ.get("WEB_PORT", 8000))

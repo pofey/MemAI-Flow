@@ -6,3 +6,5 @@ dataclasses-json==0.6.1
 SQLAlchemy==2.0.23
 trafilatura==1.6.2
 inject==5.1.0
+APScheduler==3.10.4
+trafilatura==1.6.2
