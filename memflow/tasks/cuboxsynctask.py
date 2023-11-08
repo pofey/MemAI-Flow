@@ -9,6 +9,7 @@ from memflow.exceptions import CuboxErrorException
 from memflow.memapi import MemApi
 from memflow.models import SyncRecord
 from trafilatura import extract
+from markdownify import markdownify as md
 
 CHANNEL_NAME = "cubox"
 INBOX_URL = "https://cubox.pro/c/api/v2/search_engine/inbox"
@@ -65,9 +66,14 @@ class CuboxSyncTask:
             time.sleep(1)
             _LOGGER.info(f"start sync cubox bookmark id: {bookmark_id}")
             detail = extract_data_from_response(self.get_detail(bookmark_id))
-            page_content = extract(f"<html>{detail.get('content')}</html>", include_links=True,
-                                   include_formatting=True,
-                                   include_images=True)
+
+            # 用trafilatura先提取网页中的核心内容
+            core_html = extract(f"<html>{detail.get('content')}</html>", include_links=True,
+                                include_formatting=True,
+                                include_images=True, output_format='xml')
+            # 用markdownify将html转换为带格式的markdown
+            page_content = md(core_html)
+
             url = detail.get('targetURL')
             title = detail.get('title')
             markdown_content = f'## {title}\n\n[🔗原文链接]({url})\n\n{page_content}'
@@ -75,3 +81,4 @@ class CuboxSyncTask:
             mem_url = r.get('url')
             SyncRecord.insert(CHANNEL_NAME, bookmark_id, r.get('id'), mem_url)
             _LOGGER.info(f"create mem success, title: {title} mem_url: {mem_url}")
+        _LOGGER.info("sync cubox content success")
